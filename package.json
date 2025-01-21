@@ -1,0 +1,61 @@
+{
+    "name": "@mergehez/barke",
+    "version": "0.0.9",
+    "description": "an automated cli tool for deployment or anything you want!",
+    "author": "mergehez <argesozdogan@gmail.com>",
+    "license": "MIT",
+    "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mergehez/barke.git"
+    },
+    "homepage": "https://github.com/mergehez/barke",
+    "files": [
+        "dist",
+        "src",
+        "doc",
+        "yaml"
+    ],
+    "main": "dist/index.js",
+    "module": "dist/index.js",
+    "types": "dist/types/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/types/index.d.ts",
+            "import": "./dist/index.js",
+            "require": "./dist/index.js"
+        },
+        "./ts": {
+            "types": "./src/index.ts",
+            "import": "./src/index.ts",
+            "require": "./src/index.ts"
+        }
+    },
+    "bin": {
+        "barke": "dist/barke-yaml.cjs"
+    },
+    "scripts": {
+        "build": "rm -rf dist && bun build.mjs",
+        "publishx": "bun run build && npm version patch && npm publish --access=public && bun run install-global",
+        "install-global": "npm cache clean --force && npm i -g @mergehez/barke && npm list -g && bun add @mergehez/barke --force",
+        "test-ts": "bun run build && bun dist/barke-yaml.cjs --config='./barke.laravel.yml' --dry-run",
+        "test-yaml-ssh": "bun run build && bun dist/barke-yaml.cjs --config='./barke-test-ssh.yml'",
+        "test-yaml-ftp": "bun run build && bun dist/barke-yaml.cjs --config='./barke-test-ftp.yml'"
+    },
+    "devDependencies": {
+        "@types/adm-zip": "^0.5.7",
+        "@types/node": "^22.10.7",
+        "@types/prompts": "^2.4.9",
+        "@types/ssh2": "^1.15.4",
+        "chalk": "^5.4.1",
+        "esbuild": "0.24.2",
+        "typescript": "^5.7.3",
+        "yaml": "^2.7.0"
+    },
+    "dependencies": {
+        "adm-zip": "^0.5.16",
+        "basic-ftp": "^5.0.5",
+        "node-ssh": "^13.2.0",
+        "prompts": "^2.4.2"
+    }
+}

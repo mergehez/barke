@@ -1,0 +1,40 @@
+config:
+  target_os: unix
+  local_basepath: ./
+  remote_basepath: /www/wwwroot/testunix/testftp
+  host: ${env.UNIX_SERVER_HOST}
+  ftp:
+    username: ${env.UNIX_FTP_USERNAME}
+    password: ${env.UNIX_FTP_PASSWORD}
+    base_path: /www/wwwroot
+
+  dist_dirs:
+    - src/services
+
+  ignores:
+    - node_modules
+    - dist
+    - doc
+    - /.*
+    - /*.*
+    - \*.json
+    - .DS_Store
+    - \*.png
+
+steps:
+  - predefined: server:find_new_files
+  - predefined: local:exit_if_dry_run
+  - predefined: server:upload_files_ftp
+  - predefined:
+      method: server:delete_file
+      path: yaml/types.ts
+  - predefined:
+      method: server:delete_dir
+      path: doc
+  - predefined: local:dispose_ftp
+  - predefined: local:finish
+
+
+
+
+
