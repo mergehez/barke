@@ -1,3 +1,8 @@
+[![NPM Version](https://img.shields.io/npm/v/%40mergehez%2Fbarke)](https://www.npmjs.com/package/@mergehez/barke)
+![NPM Downloads](https://img.shields.io/npm/d18m/%40mergehez%2Fbarke)
+
+
+
 # Barke
 
 An automation utilities library and cli tool.
