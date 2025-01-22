@@ -46,14 +46,6 @@ export const useFTP = async (userConfig: TUserConfig, flags: TFlags, ftpInfo: TF
         process.exit(1);
     }
 
-    function handleFtpError(err: unknown, onFtpError: (err: FTPError) => void, onOtherError: (err: unknown) => void) {
-        if(err instanceof FTPError){
-            onFtpError(err);
-            return;
-        }
-        onOtherError(err);
-    }
-
     type TryCatchOptions = {
         fn: () => Promise<any>,
         onFtpError: (err: FTPError) => boolean, // when false, dont logError and dont exit
@@ -76,14 +68,6 @@ export const useFTP = async (userConfig: TUserConfig, flags: TFlags, ftpInfo: TF
                 opts.onOtherError(error);
             else
                 throw error;
-            handleFtpError(error, (err) => {
-                opts.onFtpError(err);
-                logError(err);
-                process.exit(1);
-            }, () => {
-                opts.onOtherError?.(error);
-                throw error;
-            });
         }
     }
 
