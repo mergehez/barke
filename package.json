@@ -53,6 +53,7 @@
         "yaml": "^2.7.0"
     },
     "dependencies": {
+        "@mergehez/barke": "^0.0.10",
         "adm-zip": "^0.5.16",
         "basic-ftp": "^5.0.5",
         "node-ssh": "^13.2.0",
