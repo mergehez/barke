@@ -191,12 +191,19 @@ export function useExecuter(userConfig: TUserConfig) {
             logInfo('\n-> LOCAL: Deleting the zip file...');
             fs.rmSync(fsPath.join(userConfig.sourceBasePath, consts.zipFileName));
         },
-        deleteLocal: (path: string, prependBasePath = true) => {
+        deleteLocalFile: (path: string, prependBasePath = true) => {
             logInfo(`\n-> LOCAL: Deleting '${path}'...`);
             if (prependBasePath && !path.includes(userConfig.sourceBasePath))
                 path = fsPath.join(userConfig.sourceBasePath, path);
 
             fs.rmSync(path);
+        },
+        deleteLocalDir: (path: string, prependBasePath = true) => {
+            logInfo(`\n-> LOCAL: Deleting '${path}'...`);
+            if (prependBasePath && !path.includes(userConfig.sourceBasePath))
+                path = fsPath.join(userConfig.sourceBasePath, path);
+
+            fs.rmdirSync(path, { recursive: true });
         },
         sleep: sleep,
         wait: sleep,

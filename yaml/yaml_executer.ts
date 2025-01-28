@@ -276,14 +276,14 @@ export const createExecuter = async () => {
 
                     case 'local:delete_file':
                         const m9 = method as TPredefinedWithProps<'local:delete_file'>;
-                        return deploy.deleteLocal(m9.path, m9.from_base_path);
+                        return deploy.deleteLocalFile(m9.path, m9.from_base_path);
                     case 'local:delete_files':
                         const m10 = method as TPredefinedWithProps<'local:delete_files'>;
-                        m10.paths.forEach(async p => deploy.deleteLocal(p, m10.from_base_path));
+                        m10.paths.forEach(async p => deploy.deleteLocalFile(p, m10.from_base_path));
                         return;
                     case 'local:delete_dir':
                         const m11 = method as TPredefinedWithProps<'local:delete_dir'>;
-                        return deploy.deleteLocal(m11.path, m11.from_base_path);
+                        return deploy.deleteLocalDir(m11.path, m11.from_base_path);
 
                     default:
                         deploy.logError(`"${name}" is not a valid predefined method!`);
