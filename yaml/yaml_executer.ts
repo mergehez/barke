@@ -146,8 +146,8 @@ export const createExecuter = async () => {
                 }
             }
 
-            const res = await ftpConn.getFiles('/asfafasf');
-            console.log(res);
+            // const res = await ftpConn.getFiles('/asfafasf');
+            // console.log(res);
 
             // await ftpConn.uploadFile('yaml/index.ts');
             // await ftpConn.uploadFile('yaml/types.ts');
