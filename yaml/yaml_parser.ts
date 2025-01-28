@@ -30,7 +30,7 @@ options:
         process.exit(0);
     }
     if (process.argv.includes('--methods')) {
-        console.log(predefinedMethodNames.join(EOL));
+        console.log(predefinedMethodNames.toSorted((a,b) => a.localeCompare(b)).join(EOL));
         process.exit(0);
     }
     // console.log(getCalleeLocation());
