@@ -17,7 +17,9 @@ config:
 
   # for printing "files to upload". files inside these dirs, won't be printed, instead "dir/*"
   dist_dirs:
-    - folder_with_lots_of_files
+    - wwwroot/build
+    - System
+    - Microsoft
 
   ignores:
     - .DS_Store
@@ -25,17 +27,26 @@ config:
     - \*.sqlite
     - \*.mdb
     - \*.accdb
+    - hot
 
 steps:
-  - predefined: 
-      method: local:delete_dir
-      path: "./bin"
   - shell:
-      command: dotnet publish -c Release -r win-x86 -f net8.0 -o "{{0}}"
+      command: rm -r ./bin
+      message: blue|\n-> deleting bin/publish folder
+  - shell:
+      command: rm -r ./wwwroot/build
+      message: blue|\n-> deleting wwwroot/build folder
+  - shell:
+      command: cd ClientApp && bun run build
+      message: blue|\n-> building vue project
+      ignore_stdout: true
+  - shell:
+      command: dotnet publish -c DEBUG -r win-x86 -f net9.0 -o "{{0}}" -p:CompressionEnabled=false
       args:
         - ${config.local_basepath}
       message: blue|\n-> building project
       ignore_stdout: true
+      
   - predefined: server:find_new_files
   - predefined: local:exit_if_dry_run
   - predefined: server:upload_files_ssh
@@ -46,6 +57,10 @@ steps:
   - predefined: # sleep for a second to let the site stop completely
      method: local:sleep
      ms: 1000
+  - predefined:
+      method: server:delete_dir
+      path: ./wwwroot/build
+      on_error: ignore
   - predefined: server:unzip
   - predefined: server:delete_zip
   - predefined:

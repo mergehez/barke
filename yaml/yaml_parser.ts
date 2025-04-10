@@ -1,13 +1,13 @@
-import {parseEnv, promptChoice, promptConfirm, ShellProps} from "../src/utils/cli_utils.ts";
-import {getCalleeLocation, logError, logWarning, normalizePath, stringFormat, TCalleeLoc} from "../src/utils/helpers.ts";
-import {EOL, type} from "node:os";
 import fs from "node:fs";
+import { EOL, type } from "node:os";
 import YAML from "yaml";
+import packageJson from "../package.json" with { type: "json" };
+import { OS } from "../src/types.ts";
+import { parseEnv, promptChoice, promptConfirm, ShellProps } from "../src/utils/cli_utils.ts";
+import { getCalleeLocation, logError, logWarning, normalizePath, stringFormat, TCalleeLoc } from "../src/utils/helpers.ts";
 import defaultConfigIIS from "./barke.iis.yml";
 import defaultConfigLaravel from "./barke.laravel.yml";
-import {TYamlConfig, TYamlConfigRaw, TYamlShell, yamlConfigValidationRules, TYamlRule, predefinedMethodNames, obsoletePredefinedMethods, TPredefined} from "./yaml_types.ts";
-import { OS } from "../src/types.ts";
-import packageJson  from "../package.json" assert { type: "json" };
+import { obsoletePredefinedMethods, predefinedMethodNames, TPredefined, TYamlConfig, TYamlConfigRaw, TYamlRule, TYamlShell, yamlConfigValidationRules } from "./yaml_types.ts";
 
 export let defaultBarkeYamlPath = "./barke.yml";
 export async function parseBarkeYaml(){

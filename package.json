@@ -36,15 +36,15 @@
     },
     "scripts": {
         "build": "rm -rf dist && bun build.mjs",
-        "publishx": "bun run build && npm version patch && npm publish --access=public && bun run install-global",
-        "install-global": "npm cache clean --force && npm i -g @mergehez/barke && npm list -g && bun add @mergehez/barke --force",
+        "publishx": "npm version patch && bun run build && npm publish --access=public && bun run install-global",
+        "install-global": "npm cache clean --force && npm i -g @mergehez/barke && npm list -g && bun add --global @mergehez/barke --force",
         "test-ts": "bun run build && bun dist/barke-yaml.cjs --config='./barke.laravel.yml' --dry-run",
         "test-yaml-ssh": "bun run build && bun dist/barke-yaml.cjs --config='./barke-test-ssh.yml'",
         "test-yaml-ftp": "bun run build && bun dist/barke-yaml.cjs --config='./barke-test-ftp.yml'"
     },
     "devDependencies": {
         "@types/adm-zip": "^0.5.7",
-        "@types/node": "^22.10.7",
+        "@types/node": "^22.13.1",
         "@types/prompts": "^2.4.9",
         "@types/ssh2": "^1.15.4",
         "chalk": "^5.4.1",
@@ -53,7 +53,6 @@
         "yaml": "^2.7.0"
     },
     "dependencies": {
-        "@mergehez/barke": "^0.0.10",
         "adm-zip": "^0.5.16",
         "basic-ftp": "^5.0.5",
         "node-ssh": "^13.2.0",

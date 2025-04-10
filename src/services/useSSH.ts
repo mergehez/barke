@@ -25,7 +25,7 @@ export const sshConnect = async (userConfig: TUserConfig, flags: TFlags, sshConf
     }
 
     const serverUtils = userConfig.targetOS === 'windows'
-        ? useWindowsUtils(userConfig)
+        ? useWindowsUtils(userConfig, ssh)
         : useUnixUtils(userConfig);
 
     const exec = async (cfg: ShellPropsExtended, prependCd: boolean = true) => {

@@ -1,10 +1,11 @@
 import chalk from "chalk";
+import { execSync } from "child_process";
+import { NodeSSH } from "node-ssh";
 import fs from 'node:fs';
-import {execSync} from "child_process";
-import {getCalleeLocation, log, logError, logInfo, logWarning} from "./helpers.ts";
+import { EOL } from "node:os";
 import prompts from "prompts";
-import {NodeSSH} from "node-ssh";
-import {EOL} from "node:os";
+import { TOnError } from "../types.ts";
+import { getCalleeLocation, log, logError, logInfo, logWarning } from "./helpers.ts";
 
 type TLog = typeof log;
 export type ShellProps = {
@@ -13,7 +14,7 @@ export type ShellProps = {
     message?: string |
          ((props: ShellProps, log: TLog) => void) |
          [Parameters<TLog>[1], string],
-    on_error?: 'throw' | 'print' | 'ignore', // print: print but don't throw. (default: throw)
+    on_error?: TOnError, // print: print but don't throw. (default: throw)
     ignore_stdout?: boolean,
     return_error?: boolean,
     onError?: (err: any) => void,
@@ -116,12 +117,12 @@ export async function runShell(props: ShellProps, ssh?: NodeSSH): Promise<string
 export function parseEnv(prefix: string = '', exitIfNoEnv = true, removePrefix = false) {
     if (!fs.existsSync('./.env')) {
         console.log(chalk.red('No .env file found!'));
-        return exitIfNoEnv ? process.exit(1) : null;
+        return exitIfNoEnv ? process.exit(1) : {};
     }
     return parseYaml(fs.readFileSync('./.env').toString(), prefix, removePrefix);
 }
 
-export function parseYaml(content: string, prefix: string = '', removePrefix = false): Record<Lowercase<string>, string> {
+export function parseYaml(content: string, prefix: string = '', removePrefix = false): Record<string, string> {
     let lines = content.split(EOL)
         .map(t => t.trim())
         .filter(t => t.length > 0)

@@ -37,13 +37,17 @@ export const createExecuter = async () => {
         targetBasePath: yamlConfig.config.remote_basepath,
     });
 
-    function yamlConfigRequiresSSH() {
+    function yamlConfigRequiresSSH(requiresFtp: boolean) {
         for (const step of yamlConfig.steps) {
             if ('predefined' in step) {
                 const method = step.predefined;
                 const name = typeof method === 'string' ? method : method.method;
                 if (sshMethods.includes(name)) {
                     return 'use the predefined method: ' + name;
+                }
+
+                if(!requiresFtp && name == 'server:find_new_files'){
+                    return true;
                 }
                 // if (name.startsWith('server:') && name != 'server:upload_files_ftp') {
                 //     return true;
@@ -94,7 +98,9 @@ export const createExecuter = async () => {
 
     return {
         start: async () => {
-            const requiresSsh = yamlConfigRequiresSSH();
+            const requiresFtp = yamlRequiresFtp();
+            const requiresSsh = yamlConfigRequiresSSH(!!requiresFtp);
+            
             if(requiresSsh){
                 if(!yamlConfig.config.ssh){
                     deploy.logError(`You must provide SSH configuration to ${requiresSsh}! Define "config.host" and "config.ssh" in your yaml file.`);
@@ -106,7 +112,6 @@ export const createExecuter = async () => {
                 }
             }
 
-            const requiresFtp = yamlRequiresFtp();
             if(requiresFtp){
                 if(!yamlConfig.config.ftp){
                     deploy.logError(`You must provide FTP configuration to ${requiresFtp}! Define "config.host" and "config.ftp" in your yaml file.`);
@@ -186,7 +191,7 @@ export const createExecuter = async () => {
                                 dirsWithManyFiles: yamlConfig.config.dist_dirs
                             });
                             zipUtils = deploy.compressFiles(newFiles);
-                        }else{
+                        }else if(ftpConn){
                             // deploy.logWarning('-> FTP: When not using SSH, all files will be considered new. (except for the ignored ones)');
                             // newFiles = compareServerFilesWithLocal(yamlConfig.config.local_basepath, deploy.flags, ignoreCfg, [], yamlConfig.config.dist_dirs);
 
@@ -194,6 +199,9 @@ export const createExecuter = async () => {
                                 ...ignoreCfg,
                                 dirsWithManyFiles: yamlConfig.config.dist_dirs
                             });
+                        }else{
+                            deploy.logError('You must provide SSH or FTP configuration to use this method: '+name);
+                            process.exit(1);
                         }
                         return;
                     case 'server:unzip':

@@ -3,6 +3,7 @@ import { ShellProps } from "./utils/cli_utils.ts";
 import { TIgnoreConfig } from "./services/executer.ts";
 
 export type OS = 'windows' | 'unix';
+export type TOnError = 'throw' | 'print' | 'ignore'; // print: print but don't throw. (default: throw)
 
 export type TFileToUpload = {
     // path without source directory. for printing purposes

@@ -1,13 +1,12 @@
-import { findInDir, log, logError, logInfo, logSuccess, logWarning, normalizePath, sleep, trimPath, unixTsToDate, bytesToSizeStr } from "../utils/helpers.ts";
-import ignore from "../utils/ignore.ts";
-import { SSHGetPutDirectoryOptions, SSHPutFilesOptions } from "node-ssh";
-import { runLocalShell, ShellProps, ShellPropsExtended } from "../utils/cli_utils.ts";
-import { TFileToUpload, TFileFromServer, TFtpConfig, TStats, OS } from "../types.ts";
-import { Config as TSshConfig } from 'node-ssh';
 import AdmZip from "adm-zip";
+import { SSHGetPutDirectoryOptions, SSHPutFilesOptions, Config as TSshConfig } from "node-ssh";
 import fs from "node:fs";
 import fsPath from "node:path";
 import { SFTPWrapper, TransferOptions as SshTransferOptions } from "ssh2";
+import { OS, TFileFromServer, TFileToUpload, TFtpConfig, TOnError, TStats } from "../types.ts";
+import { runLocalShell, ShellProps, ShellPropsExtended } from "../utils/cli_utils.ts";
+import { bytesToSizeStr, findInDir, log, logError, logInfo, logSuccess, logWarning, normalizePath, runCheckIgnore, runCheckIgnoreAsync, sleep, trimPath, unixTsToDate } from "../utils/helpers.ts";
+import ignore from "../utils/ignore.ts";
 import { TLSConnectionOptions, useFTP } from "./useFTP.ts";
 import { sshConnect, TSshConnect } from "./useSSH.ts";
 
@@ -182,28 +181,27 @@ export function useExecuter(userConfig: TUserConfig) {
                 unzipOnServer: async (sshConn: TSshConnect) => {
                     await sshConn.unzip(consts.zipFileName);
                 },
-                deleteOnServer: async (sshConn: TSshConnect): Promise<void> => {
-                    await sshConn.deleteFile(consts.zipFileName);
+                deleteOnServer: async (sshConn: TSshConnect, onError?: TOnError): Promise<void> => {
+                    runCheckIgnoreAsync(async () => await sshConn.deleteFile(consts.zipFileName), onError);
                 },
             };
         },
-        deleteLocalZip: () => {
+        deleteLocalZip: (onError?: TOnError) => {
             logInfo('\n-> LOCAL: Deleting the zip file...');
-            fs.rmSync(fsPath.join(userConfig.sourceBasePath, consts.zipFileName));
+            runCheckIgnore(() => fs.rmSync(fsPath.join(userConfig.sourceBasePath, consts.zipFileName)), onError);
         },
-        deleteLocalFile: (path: string, prependBasePath = true) => {
+        deleteLocalFile: (path: string, prependBasePath = true, onError?: TOnError) => {
             logInfo(`\n-> LOCAL: Deleting '${path}'...`);
             if (prependBasePath && !path.includes(userConfig.sourceBasePath))
                 path = fsPath.join(userConfig.sourceBasePath, path);
 
-            fs.rmSync(path);
+            runCheckIgnore(() => fs.rmSync(path), onError);
         },
-        deleteLocalDir: (path: string, prependBasePath = true) => {
+        deleteLocalDir: (path: string, prependBasePath = true, onError?: TOnError) => {
             logInfo(`\n-> LOCAL: Deleting '${path}'...`);
             if (prependBasePath && !path.includes(userConfig.sourceBasePath))
                 path = fsPath.join(userConfig.sourceBasePath, path);
-
-            fs.rmdirSync(path, { recursive: true });
+            runCheckIgnore(() => fs.rmdirSync(path, { recursive: true }), onError);
         },
         sleep: sleep,
         wait: sleep,

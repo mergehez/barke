@@ -1,7 +1,8 @@
+import chalk, { ColorName as LogColor, foregroundColorNames as logColors } from 'chalk';
 import fs from 'node:fs';
-import chalk, {ColorName as LogColor, foregroundColorNames as logColors} from 'chalk';
-import {Ignore} from "./ignore.ts";
 import fsPath from "node:path";
+import { TOnError } from '../types.ts';
+import { Ignore } from "./ignore.ts";
 import CallSite = NodeJS.CallSite;
 
 export const normalizePath = (path: string, forToFtp = true) => {
@@ -159,6 +160,34 @@ export function trimStr(str: string, toTrim: string[], where: 'start' | 'end' | 
     }
     return str;
 }
+
+export function runCheckIgnore<T>(fn:() => T, onError: TOnError | undefined){
+    try {
+        return fn();
+    } catch (e) {
+        if (!onError || onError === 'throw') {
+            throw e;
+        } else if (onError === 'print') {
+            logError(e);
+        }else{
+            // logWarning(`\n-> LOCAL: Ignoring error...`);
+        }
+    }
+}
+export async function runCheckIgnoreAsync<T>(fn:() => Promise<T>, onError: TOnError | undefined){
+    try {
+        return await fn();
+    } catch (e) {
+        if (!onError || onError === 'throw') {
+            throw e;
+        } else if (onError === 'print') {
+            logError(e);
+        }else{
+            // logWarning(`\n-> LOCAL: Ignoring error...`);
+        }
+    }
+}
+
 ['debug', 'warn', 'error'].forEach((methodName) => {
     const originalLoggingMethod = (console as any)[methodName];
     (console as any)[methodName] = (firstArgument: any, ...otherArguments: any[]) => {
@@ -173,7 +202,7 @@ export function trimStr(str: string, toTrim: string[], where: 'start' | 'end' | 
                 'at logWarning ',
                 'at logInfo ',
                 'at Object.onStderr ',
-                'at console.<computed> ',
+                'console.<computed> ',
             ]
             const originalPrepareStackTrace = Error.prepareStackTrace;
             Error.prepareStackTrace = (_, stack) => stack;

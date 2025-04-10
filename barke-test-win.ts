@@ -1,93 +1,77 @@
-import { TFtpConfig, TSshConfig, TFindNewFilesConfig, useExecuter } from "./src/index.ts";
+// @ts-nocheck
+// noinspection SpellCheckingInspection
 
-const env = process.env
+import { TFindNewFilesConfig, TSshConfig, TUserConfig, parseEnv, useExecuter } from "./src/index.ts";
+// const env = process.env
+const env = parseEnv();
 
-const sshInfo: TSshConfig = {
-    host: env.WIN_SERVER_HOST,
-    username: env.WIN_SSH_USERNAME,
-    password: env.WIN_SSH_PASSWORD,
-    port: parseInt(env.WIN_SSH_PORT!),
+const config = {
+    site: 'my-site',
+    root: {
+        targetOS: 'windows',
+        sourceBasePath: './bin/publish',
+        targetBasePath: 'C:/inetpub/wwwroot/my-site',
+    } satisfies TUserConfig,
+    sshInfo: {
+        host: env.FTP_SERVER,
+        username: env.SSH_USERNAME,
+        password: env.SSH_PASSWORD,
+        port: parseInt(env.SSH_PORT!),
+    } satisfies TSshConfig,
+    findConfig: {
+        ignorePatterns: [
+            '/order-logs',
+            '.DS_Store',
+            '*.txt',
+            '*.zip',
+            '*.sqlite',
+            '*.mdb',
+            '*.accdb',
+            'hot',
+        ],
+        ignoreFn: (path, stats) => {
+            if (!stats.isDirectory() && !path.includes('/')) {
+                return true;
+            }
+            // console.log(path);
+            return false;
+        },
+
+        dirsWithManyFiles: [
+            'cli/src/deploy/services',
+            'wwwroot/build',
+        ]
+    } satisfies TFindNewFilesConfig,
 }
 
-// const ftpInfo: TFtpConfig = {
-//     host: env.WIN_SERVER_HOST,
-//     username: env.WIN_FTP_USERNAME,
-//     password: env.WIN_FTP_PASSWORD,
-//     base_path: '/www/wwwroot/test',
-// }
-
-const findConfig: TFindNewFilesConfig = {
-    ignorePatterns: [
-        '/toIgnore',
-        '*.txt',
-    ],
-
-    ignoreFn: (path, stats) => {
-        if(!stats.isDirectory() && !path.includes('/')){
-            return true;
-        }
-        console.log(path);
-        return false;
-    },
-
-    dirsWithManyFiles: [
-        'cli/src/deploy/services',
-    ]
-}
-
-const executer = useExecuter({
-    targetOS: 'windows',
-    sourceBasePath: './bin/publish',
-    targetBasePath: 'C:/inetpub/wwwroot/testo',
-});
-
-const sshConn = await executer.sshConnect(sshInfo);
-const iis = executer.useIISHelpers(sshConn);
-// const laravel = executer.useLaravelHelpers();
-
-
-
-// await laravel.local.clearCache();
-// await laravel.local.build('bun');
-executer.exec({
-    command: 'dotnet publish -c ReleaseDev -r win-x86 -f net8.0 -o "./bin/publish"',
-    message: 'Building project...',
+const executer = useExecuter(config.root);
+executer.deleteLocalDir('./bin/publish', false, 'ignore');
+executer.deleteLocalDir('./wwwroot/build', false, 'ignore');
+await executer.exec({
+    command: 'cd ClientApp && bun run build',
+    message: 'blue|\n-> Building vue project...',
+    ignore_stdout: true,
 })
-const newFiles = await sshConn.findNewFiles(findConfig);
-const zip = executer.compressFiles(newFiles);
+const sshConn = await executer.sshConnect(config.sshInfo);
+await executer.exec({
+    command: 'dotnet publish -c DEBUG -r win-x86 -f net9.0 -o "./bin/publish" -p:CompressionEnabled=false',
+    message: 'blue|\n-> Building .net project...',
+    ignore_stdout: true,
+})
+const newFiles = await sshConn.findNewFiles(config.findConfig);
 executer.exitIfDryRun();
+const zip = executer.compressFiles(newFiles);
 
-// await executer.ftpUpload(ftpInfo, zip.path);
 await sshConn.uploadFile(zip.path);
-
-// await sshConn.deleteFile('public/build/manifest.json', {
-//     on_error: 'ignore'
-// });
-// await sshConn.deleteDir('public/build/assets', {
-//     on_error: 'ignore'
-// });
-iis.stopSite('testo', 'testo');
+const iis = executer.useIISHelpers(sshConn);
+await iis.stopSite(config.site, config.site);
+await sshConn.deleteDir('wwwroot/build/assets', {
+    // on_error: 'ignore'
+});
 await zip.unzipOnServer(sshConn);
 await zip.deleteOnServer(sshConn);
-iis.startSite('testo', 'testo');
+await iis.startSite(config.site, config.site);
 zip.deleteLocally();
-
-// if(newFiles.some(t => t.trimmedPath.includes('composer.json'))){
-//     await laravel.server.composerUpdate(sshConn);
-// }
-
-// await laravel.server.ensureDirsExist(sshConn, {
-//     dirs: [
-//         'storage',
-//         'bootstrap',
-//         'storage',
-//     ],
-//     owner: 'www',
-//     group: 'www',
-//     permissions: '0775',
-// });
-
-// await laravel.local.clearCache();
 
 sshConn.dispose();
 executer.finish();
