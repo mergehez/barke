@@ -15,9 +15,20 @@ export const consts = {
 }
 
 export type TUserConfig = {
+    /**
+     * The base path of your local project. All paths in the configuration are relative to this path.
+     */
     sourceBasePath: string;
+    /**
+     * The base path of your project on the server. All paths in the configuration are relative to this path.
+     * For example, if your project is located at '/var/www/myproject', set this to '/var/www/myproject'.
+     */
+    targetBasePath: string;
+    /**
+     * The operating system of the server. Use 'windows' for Windows servers and 'unix' for Linux/Unix/Mac servers.
+     * This is important for determining the correct commands to use on the server.
+     */
     targetOS: OS;
-    targetBasePath: string,
     /**
      * This is only for windows servers and is used in SSH mode.
      * If not provided, the default value is '7z x -aoa'.
@@ -26,16 +37,45 @@ export type TUserConfig = {
 }
 
 export type TIgnoreConfig = {
+    /**
+     * These patterns are used to ignore file while getting the list of remote files.
+     * Local files are also ignored with these patterns when comparing.
+     */
     ignorePatterns: string[],
-    ignoreFn: (path: string, stat: TStats) => boolean
+    /**
+     * This function is called after checking the 'ignorePatterns'. If you return 'true', that file won't be included.
+     *
+     * Just return false if 'ignorePatterns' is enough for you.
+    */
+   ignoreFn: (path: string, stat: TStats) => boolean
 }
 export type TFindNewFilesConfig = TIgnoreConfig & {
+    /**
+     * If provided, console.log will group the files during 'findNewFiles' function.
+     *
+     * 
+     * Example output:
+     *```
+     * FILES TO UPLOAD:
+     * - file.txt               5.67 kb
+     * - public/build/**        1.23 MB
+     *```
+     */
     dirsWithManyFiles?: string[]
 }
 
 export type TFlags = {
+    /**
+     * Indicates whether '--dry-run' flag is set.
+     */
     isDryRun: boolean;
+    /**
+     * Indicates whether '--fresh' flag is set.
+     */
     isFresh: boolean;
+    /**
+     * Indicates whether '--log-files' flag is set.
+     */
     isLogFiles: boolean;
 }
 
@@ -49,11 +89,17 @@ export function useExecuter(userConfig: TUserConfig) {
 
     return {
         flags,
-        sshConnect: (sshConfig: TSshConfig) => sshConnect(userConfig, flags, sshConfig),
-        ftpConnect: (ftpInfo: TFtpConfig, secureOptions?: TLSConnectionOptions) => useFTP(userConfig, flags, ftpInfo, secureOptions),
         /**
-         * This is only for windows servers.
+         * Creates an SSH connection to the server and returns SSH related helper functions.
          */
+        sshConnect: (sshConfig: TSshConfig) => sshConnect(userConfig, flags, sshConfig),
+
+        /**
+         * Creates an FTP connection to the server and returns FTP related helper functions.
+         */
+        ftpConnect: (ftpInfo: TFtpConfig, secureOptions?: TLSConnectionOptions) => useFTP(userConfig, flags, ftpInfo, secureOptions),
+        
+        /** This is only for windows servers. */
         useIISHelpers: (sshConn: TSshConnect) => {
             const cd = 'cd C:/Windows/System32/inetsrv ';
             const poolCmd = (method: string, pool: string) => `appcmd ${method} apppool /apppool.name:"${pool}"`;
@@ -80,8 +126,12 @@ export function useExecuter(userConfig: TUserConfig) {
                 }
             }
         },
+        
+        /** Laravel specific helper functions for both local and server. */
         useLaravelHelpers: () => ({
+            /** Local helper functions */
             local: {
+                /** Runs 'php artisan optimize:clear' on the local machine. */
                 clearCache: async (clearDebugbar = true) => {
                     logInfo(`\n-> LOCAL: Clearing cache, config, routes, views, events and compiled...`);
                     await runLocalShell({
@@ -99,6 +149,8 @@ export function useExecuter(userConfig: TUserConfig) {
                         });
                     }
                 },
+
+                /** Builds the frontend assets using the specified package manager. Runs e.g. 'bun run build' if pm is bun */
                 build: async (pm = 'bun', dist = 'public/build') => {
                     logInfo(`\n-> LOCAL: Deleting ${dist}`);
                     fs.rmSync(dist, { recursive: true, force: true });
@@ -114,7 +166,9 @@ export function useExecuter(userConfig: TUserConfig) {
                 },
             },
 
+            /** Remote helper functions */
             server: {
+                /** Runs 'php artisan optimize:clear' on the server. */
                 optimize: async (sshConn: TSshConnect, cfg?: Omit<ShellProps, 'command'>) => {
                     await sshConn.exec({
                         command: 'php artisan optimize',
@@ -124,6 +178,7 @@ export function useExecuter(userConfig: TUserConfig) {
                     });
                 },
 
+                /** Runs 'composer update --optimize-autoloader --no-interaction --no-dev --prefer-dist' on the server. */
                 composerUpdate: async (sshConn: TSshConnect, cfg?: Omit<ShellProps, 'command'>) => {
                     await sshConn.exec({
                         command: 'export COMPOSER_ALLOW_SUPERUSER=1 && composer update --optimize-autoloader --no-interaction --no-dev --prefer-dist',
@@ -133,6 +188,7 @@ export function useExecuter(userConfig: TUserConfig) {
                     });
                 },
 
+                /** Ensures that the given directories exist on the server with the given owner, group and permissions. */
                 ensureDirsExist: async (sshConn: TSshConnect, opts: { dirs: string[], owner?: string, group?: string, permissions?: string }) => {
                     const permissions = opts.permissions ?? '0755';
                     const owner = opts.owner ?? 'www';
@@ -148,7 +204,17 @@ export function useExecuter(userConfig: TUserConfig) {
             },
 
         }),
+
+        /**
+         * Runs a shell command on the local machine.
+         */
         exec: runLocalShell,
+
+        /**
+         * Compresses the given files into a zip file and returns the path of the zip file.
+         * Also provides functions to delete the zip file locally and on the server, and to unzip the file on the server.
+         * @param files Typically the output of 'findNewFiles' function from SSH or FTP connections.
+         */
         compressFiles: (files: TFileToUpload[]) => {
             const zip = new AdmZip();
             for (const f of files) {
@@ -166,11 +232,15 @@ export function useExecuter(userConfig: TUserConfig) {
             logInfo(`\n-> LOCAL: Created '${zipPath}' (${zipSizeStr}).`);
 
             return {
+                /** The path of the zip file on the local machine. */
                 path: zipPath,
+
+                /** Function to delete the zip file on the local machine. */
                 deleteLocally: () => {
                     logInfo(`\n-> LOCAL: Deleting '${zipPath}'.`);
                     fs.rmSync(zipPath);
                 },
+
                 /**
                  * To use this function on a windows server, you need to have '7z' installed on it. 
                  * On unix servers, the built-in 'unzip' command is used.
@@ -181,15 +251,29 @@ export function useExecuter(userConfig: TUserConfig) {
                 unzipOnServer: async (sshConn: TSshConnect) => {
                     await sshConn.unzip(consts.zipFileName);
                 },
+
+                /** Function to delete the zip file on the server. */
                 deleteOnServer: async (sshConn: TSshConnect, onError?: TOnError): Promise<void> => {
                     runCheckIgnoreAsync(async () => await sshConn.deleteFile(consts.zipFileName), onError);
                 },
             };
         },
+
+        /**
+         * Deletes zip file generated by 'compressFiles' function. (barke_deploy_archive.zip)
+         * @param onError What to do on error. Default is to throw the error.
+         */
         deleteLocalZip: (onError?: TOnError) => {
             logInfo('\n-> LOCAL: Deleting the zip file...');
             runCheckIgnore(() => fs.rmSync(fsPath.join(userConfig.sourceBasePath, consts.zipFileName)), onError);
         },
+
+        /**
+         * Deletes a file on the local machine. The path is relative to 'sourceBasePath' by default.
+         * @param path The path of the file to delete.
+         * @param prependBasePath If true, 'sourceBasePath' is prepended to the path. Default is true.
+         * @param onError What to do on error. Default is to throw the error.
+         */
         deleteLocalFile: (path: string, prependBasePath = true, onError?: TOnError) => {
             logInfo(`\n-> LOCAL: Deleting '${path}'...`);
             if (prependBasePath && !path.includes(userConfig.sourceBasePath))
@@ -197,26 +281,55 @@ export function useExecuter(userConfig: TUserConfig) {
 
             runCheckIgnore(() => fs.rmSync(path), onError);
         },
+
+        /**
+         * Deletes a directory on the local machine. The path is relative to 'sourceBasePath' by default.
+         * @param path The path of the directory to delete.
+         * @param prependBasePath If true, 'sourceBasePath' is prepended to the path. Default is true.
+         * @param onError What to do on error. Default is to throw the error.
+         */
         deleteLocalDir: (path: string, prependBasePath = true, onError?: TOnError) => {
             logInfo(`\n-> LOCAL: Deleting '${path}'...`);
             if (prependBasePath && !path.includes(userConfig.sourceBasePath))
                 path = fsPath.join(userConfig.sourceBasePath, path);
             runCheckIgnore(() => fs.rmdirSync(path, { recursive: true }), onError);
         },
+
+        /**
+         * Sleeps for a given amount of time.
+         * @param ms The amount of time to sleep, in milliseconds.
+         */
         sleep: sleep,
+
+        /**
+         * Sleeps for a given amount of time.
+         * @param ms The amount of time to sleep, in milliseconds.
+         */
         wait: sleep,
+
+        /**
+         * Call this function at the point you want to finish the execution.
+         * This function will print the total execution time and exit the process with code 0.
+         */
         finish: () => {
             const execTime = (performance.now() - startTime).toFixed(0);
             logSuccess(`\n🎉 FINISHED SUCCESSFULLY in ${execTime} ms 🎉`);
             console.log();
             process.exit(0);
         },
+
+        /**
+         * If '--dry-run' flag is set, this function will print a message and exit the process with code 0.
+         * Call this function after all the preparations and before any action that changes anything.
+         */
         exitIfDryRun: () => {
             if (flags.isDryRun) {
                 logInfo('\n-> End of dry-run!');
                 process.exit(0);
             }
         },
+
+        
         log,
         logError,
         logWarning,

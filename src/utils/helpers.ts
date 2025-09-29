@@ -5,6 +5,16 @@ import { TOnError } from '../types.ts';
 import { Ignore } from "./ignore.ts";
 import CallSite = NodeJS.CallSite;
 
+/**
+ * Normalizes the given path by:
+ * - Replacing backslashes with forward slashes.
+ * - Removing trailing slashes (except for root).
+ * - Removing leading './' if present.
+ * - Optionally removing leading '/' if not for FTP.
+ * @param path The path to normalize.
+ * @param forToFtp Whether to normalize the path for FTP (default: true).
+ * @returns The normalized path.
+ */
 export const normalizePath = (path: string, forToFtp = true) => {
     path = path.trim().replace(/\\/gi, "/");
     if(!path || path == '.' || path == './*' || path == '*')
@@ -20,6 +30,12 @@ export const normalizePath = (path: string, forToFtp = true) => {
     return path;
 };
 
+/**
+ * Trims the given path based on the basepath.
+ * @param path The path to trim.
+ * @param basepath The base path to trim from.
+ * @returns The trimmed path.
+ */
 export const trimPath = (path: string, basepath: string) => {
     if(basepath == '.')
         basepath = './';
@@ -41,33 +57,29 @@ export const trimPath = (path: string, basepath: string) => {
         : p
 }
 
-
-/**
- * Find files in a directory and its subdirectories
- * @param opts
- * @param opts.baseDir The base directory to start searching
- * @param opts.objectCreator This is called for each file found. It should return the object to be passed to onFound callback or null/false to exclude the file
- * @param opts.onFound The callback to call when a file is found. To exclude a file, return false/null from objectCreator function
- */
-export function findInDir<T extends Record<string, any> = {
+type FindInDirOptsFileType = {
     path: string,
     trimmedPath: string,
     name: string,
     stat: fs.Stats
-}>(opts: {
+}
+type FindInDirOpts<T extends Record<string, any>> = {
+    /** The base directory to start searching */
     baseDir: string,
+    /** The callback to call when a file is found. To exclude a file, return false/null from objectCreator function */
     onFound: (data: T) => void,
-    objectCreator?: (data: {
-        path: string,
-        trimmedPath: string,
-        name: string,
-        stat: fs.Stats
-    }) => T | null,
+    /** This is called for each file found. It should return the object to be passed to onFound callback or null/false to exclude the file */
+    objectCreator?: (data: FindInDirOptsFileType) => T | null,
     ignore?: Ignore,
     ignorer?: (path: string, stat: fs.Stats) => boolean,
     allowSymlinks?: boolean,
     firstBaseDir?: string, // used internally
-}){
+}
+
+/**
+ * Find files in a directory and its subdirectories. (on local machine)
+ */
+export function findInDir<T extends Record<string, any> = FindInDirOptsFileType>(opts: FindInDirOpts<T>) : void{
     opts.baseDir = normalizePath(opts.baseDir);
     if(opts.baseDir == '/' || opts.baseDir == './')
         opts.baseDir = '.';
@@ -139,6 +151,12 @@ export function stringFormat(str: string, args: string[]) {
     return str.replace(/{{(\d+)}}/g, (_, index) => args[index] || `{${index}}`);
 }
 
+/**
+ * Trims the specified substrings from the given string.
+ * @param str The original string to trim.
+ * @param toTrim An array of substrings to remove from the original string.
+ * @param where Specifies where to trim the substrings (start, end, or both).
+ */
 export function trimStr(str: string, toTrim: string[], where: 'start' | 'end' | 'both' = 'both') {
     if(where !== 'end'){
         for (let i = 0; i < toTrim.length; i++){
@@ -323,6 +341,13 @@ export function getCalleeLocation(back = 0, err:Error|undefined = undefined): TC
 }
 
 let calleLocRefToLogFn: TCalleeLoc | undefined = undefined;
+/**
+ * Logs a message to the console with the specified color and log method.
+ * @param message The message to log.
+ * @param color The color to use for the log message.
+ * @param logMethod The log method to use (log, warn, error, debug).
+ * @param calleLoc The location of the caller (file, line, method).
+ */
 export function log(message: any, color?: LogColor, logMethod: 'log' | 'warn' | 'error' | 'debug' = 'log', calleLoc: TCalleeLoc | undefined = undefined) {
     calleLocRefToLogFn = calleLoc;
     try {
@@ -340,7 +365,7 @@ export function log(message: any, color?: LogColor, logMethod: 'log' | 'warn' | 
     } catch (error) {
 
     }
-    message ??= '';
+    message =  message?.toString();
     message = message.replace('\\r\\n', '\r\n')
                     .replace('\\n', '\n');
     
@@ -356,33 +381,71 @@ export function log(message: any, color?: LogColor, logMethod: 'log' | 'warn' | 
     return log(message.substring(f[0].length + 1), color);
 }
 
+/**
+ * Logs an error message to the console.
+ * @param message The error message to log.
+ * @param exit If true, the process will exit with code 1.
+ * @param calleLoc The location of the caller (file, line, method).
+ */
 export const logError = (message: any, exit?: boolean, calleLoc: TCalleeLoc | undefined = undefined) => {
-    log(message, 'red', 'error', calleLoc);
+    log(message?.toString(), 'red', 'error', calleLoc);
     if (exit)
         process.exit(1);
 };
+
+/** 
+ * Logs a success message to the console.
+ * @param message The success message to log.
+ * @param calleLoc The location of the caller (file, line, method).
+ */
 export const logSuccess = (message: any, calleLoc: TCalleeLoc | undefined = undefined) => {
-    return log(message, 'green', 'log', calleLoc);
+    return log(message?.toString(), 'green', 'log', calleLoc);
 };
+/**
+ * Logs a warning message to the console.
+ * @param message The warning message to log.
+ * @param calleLoc The location of the caller (file, line, method).
+ */
 export const logWarning = (message: any, calleLoc: TCalleeLoc | undefined = undefined) => {
-    return log(message, 'yellow', 'warn', calleLoc);
-};
-export const logInfo = (message: any, calleLoc: TCalleeLoc | undefined = undefined) => {
-    return log(message, 'blue', 'log', calleLoc);
+    return log(message?.toString(), 'yellow', 'warn', calleLoc);
 };
 
+/**
+ * Logs an info message to the console.
+ * @param message The info message to log.
+ * @param calleLoc The location of the caller (file, line, method).
+ */
+export const logInfo = (message: any, calleLoc: TCalleeLoc | undefined = undefined) => {
+    return log(message?.toString(), 'blue', 'log', calleLoc);
+};
+
+/**
+ * Sleeps for a given amount of time.
+ * @param ms milliseconds to sleep
+ */
 export function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-
+/**
+ * Converts a Unix timestamp to a human-readable date string.
+ * @param timestamp in seconds
+ * @returns A string representing the date in the format "YYYY-MM-DD HH:mm:ss"
+ */
 export function unixTsToDate(timestamp: number) {
     const s = new Date(timestamp * 1000).toISOString();
     return s.substring(0, s.indexOf('.')).replace('T', ' ');
 }
 
-
+/**
+ * CLI style progress bar
+ */
 export const progressBar = {
+    /**
+     * Displays or updates the progress bar in the console.
+     * @param currentProgress The current progress percentage (0-100).
+     * @param text Additional text to display alongside the progress bar.
+     */
     play: (currentProgress: number, text: string) => {
         const barWidth = 30;
         const filledWidth = Math.floor(currentProgress / 100 * barWidth);
@@ -392,12 +455,20 @@ export const progressBar = {
         process.stdout.cursorTo(0);
         process.stdout.write(`[${progressBar}] ${currentProgress}% ${text}`);
     },
+    /**
+     * Clears the progress bar from the console.
+     */
     clear: () => {
         process.stdout.clearLine(0);
         process.stdout.cursorTo(0);
     }
 }
 
+/**
+ * Converts a number of bytes to a human-readable string.
+ * @param bytes number of bytes
+ * @returns A string representing the size in a human-readable format.
+ */
 export function bytesToSizeStr(bytes: number): string {
     if(bytes < (1024 * 1024)) return (bytes / 1024).toFixed(2) + " kb";
 

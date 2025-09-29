@@ -1,29 +1,41 @@
 import { NodeSSH } from "node-ssh";
-import { ShellProps } from "./utils/cli_utils.ts";
 import { TIgnoreConfig } from "./services/executer.ts";
+import { ShellProps } from "./utils/cli_utils.ts";
 
 export type OS = 'windows' | 'unix';
-export type TOnError = 'throw' | 'print' | 'ignore'; // print: print but don't throw. (default: throw)
+/**
+ * What to do on error.
+ * - 'throw': throw the error (default)
+ * - 'print': print the error but don't throw.
+ * - 'ignore': ignore the error completely.
+ */
+export type TOnError = 'throw' | 'print' | 'ignore'; 
 
 export type TFileToUpload = {
-    // path without source directory. for printing purposes
+    /** path without source directory. for printing purposes */
     trimmedPath: string,
-    // path starting from the source directory
+    /** path without source directory */
     fullPath: string,
     sizeInBytes: number,
 }
 export type TFileFromServer = {
-    path: string, // relative path from the base path
-    mtimeEpoch: number, // seconds since Jan. 1, 1970, 00:00 GMT
+    /** path without base path */
+    path: string,
+    /** last modified time (epoch, seconds since Jan. 1, 1970, 00:00 GMT) */
+    mtimeEpoch: number,
     // ctimeEpoch: number,
-    size: number, // in bytes
+    /** Size in bytes */
+    size: number,
 }
 
 export type TFtpConfig = {
+    /** The FTP server host. IP address or hostname */
     host: string;
+    /** base path on the FTP server */
     base_path: string;
     username: string;
     password: string;
+    /** Whether to use a secure connection (FTPS) */
     secure?: boolean;
 }
 
