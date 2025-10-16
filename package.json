@@ -47,15 +47,15 @@
         "@types/node": "^22.13.1",
         "@types/prompts": "^2.4.9",
         "@types/ssh2": "^1.15.4",
-        "chalk": "^5.4.1",
         "esbuild": "0.24.2",
-        "typescript": "^5.7.3",
-        "yaml": "^2.7.0"
+        "typescript": "^5.7.3"
     },
     "dependencies": {
         "adm-zip": "^0.5.16",
         "basic-ftp": "^5.0.5",
         "node-ssh": "^13.2.0",
-        "prompts": "^2.4.2"
+        "prompts": "^2.4.2",
+        "chalk": "^5.4.1",
+        "yaml": "^2.7.0"
     }
 }
