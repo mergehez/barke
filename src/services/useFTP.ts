@@ -1,20 +1,20 @@
-import { progressBar, logError, logInfo, logWarning, normalizePath } from "../utils/helpers.ts";
-import ignore from "../utils/ignore.ts";
-import { TFileFromServer, TFtpConfig } from "../types.ts";
+import { Client as FtpClient, FTPError, FileInfo as FtpFileInfo, UploadOptions as FtpUploadOptions } from "basic-ftp";
 import fsPath from "node:path";
-import { Client as FtpClient, UploadOptions as FtpUploadOptions, FileInfo as FtpFileInfo, FTPError } from "basic-ftp"
 import tls from "tls";
+import { TFileFromServer, TFtpConfig } from "../types.ts";
+import { logError, logInfo, logWarning, normalizePath, progressBar } from "../utils/helpers.ts";
+import ignore from "../utils/ignore.ts";
 import { compareServerFilesWithLocal, TFindNewFilesConfig, TFlags, TUserConfig } from "./executer.ts";
 
 export type TLSConnectionOptions = tls.ConnectionOptions;
 export type TFtpConnect = Awaited<ReturnType<typeof useFTP>>;
 
 function trySetNotParsedModifiedAt(file: FtpFileInfo) {
-    if(!file.modifiedAt && !file.isDirectory){
+    if (!file.modifiedAt && !file.isDirectory) {
         // rawModifiedAt: "Jan 21 19:07",
         const regex = /(\w{3})\s+(\d{1,2})\s+(\d{2}):(\d{2})/;
         const match = file.rawModifiedAt.match(regex);
-        if(match){
+        if (match) {
             const [_, month, day, hour, minute] = match;
             const date = new Date();
             date.setMonth(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(month));
@@ -53,18 +53,18 @@ export const useFTP = async (userConfig: TUserConfig, flags: TFlags, ftpInfo: TF
         cdToBase?: boolean
     }
     async function tryCatch(opts: TryCatchOptions) {
-        if(opts.cdToBase)
+        if (opts.cdToBase)
             await ftpClient.cd('/');
         try {
             await opts.fn();
         } catch (error) {
-            if(error instanceof FTPError){
-                if(!opts.onFtpError(error))
+            if (error instanceof FTPError) {
+                if (!opts.onFtpError(error))
                     return;
                 logError(error);
                 process.exit(1);
             }
-            if(opts.onOtherError)
+            if (opts.onOtherError)
                 opts.onOtherError(error);
             else
                 throw error;
@@ -95,13 +95,13 @@ export const useFTP = async (userConfig: TUserConfig, flags: TFlags, ftpInfo: TF
             const arr: FtpFileInfo[] = [];
             const ig = ignore().add(cfg.ignorePatterns);
             let folderAfterFtpBase = userConfig.targetBasePath.substring(ftpInfo.base_path.length);
-            if(folderAfterFtpBase.startsWith('/'))
+            if (folderAfterFtpBase.startsWith('/'))
                 folderAfterFtpBase = folderAfterFtpBase.substring(1);
             await getFilesRecursive(folderAfterFtpBase, arr, (folder: string, file: FtpFileInfo) => {
                 let path = normalizePath(fsPath.join(folder, file.name), false);
-                if(path.startsWith(folderAfterFtpBase))
+                if (path.startsWith(folderAfterFtpBase))
                     path = path.substring(folderAfterFtpBase.length);
-                if(path.startsWith('/'))
+                if (path.startsWith('/'))
                     path = path.substring(1);
                 // fsPath.relative('/', path);
                 // const path = fsPath.join(folder, file.name);
@@ -109,15 +109,15 @@ export const useFTP = async (userConfig: TUserConfig, flags: TFlags, ftpInfo: TF
                 try {
                     trySetNotParsedModifiedAt(file);
                     const stats = {
-                        size: file.size, 
+                        size: file.size,
                         mtime: file.modifiedAt,
                         mtimeMs: file.modifiedAt?.getTime(),
                         isDirectory: () => file.isDirectory,
                         isSymbolicLink: () => file.isSymbolicLink,
                         isFile: () => file.isFile,
                     }
-                    const res =  cfg.ignoreFn(path, stats) || ig.ignores(path);
-                    if(!res && !file.isDirectory){
+                    const res = cfg.ignoreFn?.(path, stats) || ig.ignores(path);
+                    if (!res && !file.isDirectory) {
                         filesFromServer.push({
                             mtimeEpoch: Math.round(stats.mtimeMs! / 1000),
                             size: stats.size,
@@ -221,7 +221,7 @@ export const useFTP = async (userConfig: TUserConfig, flags: TFlags, ftpInfo: TF
                 cdToBase: true,
                 fn: async () => await ftpClient.remove(normalizeRemotePath(remoteFile), ignoreErrorCodes),
                 onFtpError: (err) => {
-                    if(err.message.includes('No such file or directory')){
+                    if (err.message.includes('No such file or directory')) {
                         logWarning(`     -  The directory '${remoteFile}' does not exist on the server.`);
                         return false;
                     }
@@ -235,7 +235,7 @@ export const useFTP = async (userConfig: TUserConfig, flags: TFlags, ftpInfo: TF
                 cdToBase: true,
                 fn: async () => await ftpClient.removeDir(normalizeRemotePath(remoteDir)),
                 onFtpError: (err) => {
-                    if(err.message.includes('No such file or directory')){
+                    if (err.message.includes('No such file or directory')) {
                         logWarning(`     -  The directory '${remoteDir}' does not exist on the server.`);
                         return false;
                     }

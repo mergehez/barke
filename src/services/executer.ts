@@ -47,7 +47,7 @@ export type TIgnoreConfig = {
      *
      * Just return false if 'ignorePatterns' is enough for you.
     */
-   ignoreFn: (path: string, stat: TStats) => boolean
+    ignoreFn?: (path: string, stat: TStats) => boolean
 }
 export type TFindNewFilesConfig = TIgnoreConfig & {
     /**
@@ -98,7 +98,7 @@ export function useExecuter(userConfig: TUserConfig) {
          * Creates an FTP connection to the server and returns FTP related helper functions.
          */
         ftpConnect: (ftpInfo: TFtpConfig, secureOptions?: TLSConnectionOptions) => useFTP(userConfig, flags, ftpInfo, secureOptions),
-        
+
         /** This is only for windows servers. */
         useIISHelpers: (sshConn: TSshConnect) => {
             const cd = 'cd C:/Windows/System32/inetsrv ';
@@ -126,7 +126,7 @@ export function useExecuter(userConfig: TUserConfig) {
                 }
             }
         },
-        
+
         /** Laravel specific helper functions for both local and server. */
         useLaravelHelpers: () => ({
             /** Local helper functions */
@@ -329,7 +329,7 @@ export function useExecuter(userConfig: TUserConfig) {
             }
         },
 
-        
+
         log,
         logError,
         logWarning,
