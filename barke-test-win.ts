@@ -1,7 +1,9 @@
-// @ts-nocheck
 // noinspection SpellCheckingInspection
 
-import { TFindNewFilesConfig, TSshConfig, TUserConfig, parseEnv, useExecuter } from "./src/index.ts";
+type TFindNewFilesConfig = import("./src/index.ts").TFindNewFilesConfig
+type TUserConfig = import("./src/index.ts").TUserConfig
+import { parseEnv, TSshConfig, useExecuter } from "./src/index.ts";
+
 // const env = process.env
 const env = parseEnv();
 
