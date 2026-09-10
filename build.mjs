@@ -1,6 +1,6 @@
 import { exec } from "child_process";
 import { build } from "esbuild";
-import { readFileSync } from "fs"
+import { readFileSync } from "fs";
 
 const pkg = JSON.parse( readFileSync( new URL('./package.json', import.meta.url) ).toString());
 const external = [
@@ -12,7 +12,6 @@ await build({
     bundle: true,
     minify: false,
     platform: 'node',
-    format: 'esm',
     external,
     format: 'cjs',
     target: 'node16',
