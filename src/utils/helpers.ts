@@ -1,6 +1,6 @@
-import chalk, { ColorName as LogColor, foregroundColorNames as logColors } from 'chalk';
 import fs from 'node:fs';
 import fsPath from "node:path";
+import { styleText } from 'node:util';
 import { TOnError } from '../types.ts';
 import { Ignore } from "./ignore.ts";
 import CallSite = NodeJS.CallSite;
@@ -267,7 +267,7 @@ export async function runCheckIgnoreAsync<T>(fn:() => Promise<T>, onError: TOnEr
         }
         if(func.startsWith('Object.'))
             func = func.substring(7);
-        str = chalk.gray(`(${str}: ${func})`);
+        str = styleText('gray', `(${str}: ${func})`);
         if (typeof firstArgument === 'string') {
             originalLoggingMethod(firstArgument, ...[...otherArguments, str]);
         } else {
@@ -341,6 +341,14 @@ export function getCalleeLocation(back = 0, err:Error|undefined = undefined): TC
 }
 
 let calleLocRefToLogFn: TCalleeLoc | undefined = undefined;
+type StyleName = Extract<Parameters<typeof styleText>[0], string>;
+export const logColors = [
+    'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
+    'blackBright', 'redBright', 'greenBright', 'yellowBright', 'blueBright',
+    'magentaBright', 'cyanBright', 'whiteBright', 'gray', 'grey',
+] as const satisfies readonly StyleName[];
+export type LogColor = typeof logColors[number];
+
 /**
  * Logs a message to the console with the specified color and log method.
  * @param message The message to log.
@@ -371,7 +379,7 @@ export function log(message: any, color?: LogColor, logMethod: 'log' | 'warn' | 
     
     
     if (color)
-        return console[logMethod](chalk[color](message));
+        return console[logMethod](styleText(color, message));
 
     if (!message.includes('|'))
         return console[logMethod](message);

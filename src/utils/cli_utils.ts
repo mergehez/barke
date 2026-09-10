@@ -1,8 +1,8 @@
-import chalk from "chalk";
 import { execSync } from "child_process";
 import { NodeSSH } from "node-ssh";
 import fs from 'node:fs';
 import { EOL } from "node:os";
+import { styleText } from "node:util";
 import prompts from "prompts";
 import { TOnError } from "../types.ts";
 import { getCalleeLocation, log, logError, logInfo, logWarning } from "./helpers.ts";
@@ -133,7 +133,7 @@ export async function runShell(props: ShellProps, ssh?: NodeSSH): Promise<string
  */
 export function parseEnv(filePath = './.env', exitIfNoEnv = true) {
     if (!fs.existsSync(filePath)) {
-        console.log(chalk.red('No .env file found!'));
+        console.log(styleText('red', 'No .env file found!'));
         return exitIfNoEnv ? process.exit(1) : {};
     }
     return parseYaml(fs.readFileSync(filePath).toString());
