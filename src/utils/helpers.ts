@@ -446,6 +446,18 @@ export function unixTsToDate(timestamp: number) {
 }
 
 /**
+ * Redrawing the bar in place needs cursor control, which a TTY has and a pipe or a log file does not:
+ * `process.stdout.clearLine`/`cursorTo` are missing there, and calling them throws away the whole run.
+ * Deploys are often started with their output captured (CI, another tool, `bun run deploy > log`), so the
+ * bar is skipped when it cannot be redrawn.
+ */
+const canRedrawProgress = () => {
+    const stream = process.stdout as Partial<NodeJS.WriteStream>;
+
+    return Boolean(stream.isTTY && typeof stream.clearLine === 'function' && typeof stream.cursorTo === 'function');
+};
+
+/**
  * CLI style progress bar
  */
 export const progressBar = {
@@ -455,6 +467,8 @@ export const progressBar = {
      * @param text Additional text to display alongside the progress bar.
      */
     play: (currentProgress: number, text: string) => {
+        if (!canRedrawProgress()) return;
+
         const barWidth = 30;
         const filledWidth = Math.floor(currentProgress / 100 * barWidth);
         const emptyWidth = barWidth - filledWidth;
@@ -467,6 +481,8 @@ export const progressBar = {
      * Clears the progress bar from the console.
      */
     clear: () => {
+        if (!canRedrawProgress()) return;
+
         process.stdout.clearLine(0);
         process.stdout.cursorTo(0);
     }
