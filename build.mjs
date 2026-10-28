@@ -12,27 +12,6 @@ await build({
     bundle: true,
     minify: false,
     platform: 'node',
-    external,
-    format: 'cjs',
-    target: 'node16',
-    outfile: "dist/barke-yaml.cjs",
-    entryPoints: ["yaml/index.ts"],
-    plugins: [ 
-        {
-            name: "yaml_files_loader",
-            setup(build) {
-                build.onLoad({ filter: /barke\.(.*)\.yml$/ }, async (args) => {
-                    return { loader: "text", contents: readFileSync(args.path).toString() }
-                })
-            }
-        },
-    ]
-});
-
-await build({
-    bundle: true,
-    minify: false,
-    platform: 'node',
     format: 'esm',
     external,
     outfile: "dist/index.js",

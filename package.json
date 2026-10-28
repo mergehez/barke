@@ -1,7 +1,7 @@
 {
   "name": "@mergehez/barke",
   "version": "0.1.4",
-  "description": "an automated cli tool for deployment or anything you want!",
+  "description": "an automation utilities library for deployment or anything you want!",
   "homepage": "https://github.com/mergehez/barke",
   "license": "MIT",
   "author": "mergehez <argesozdogan@gmail.com>",
@@ -9,14 +9,9 @@
     "type": "git",
     "url": "git+https://github.com/mergehez/barke.git"
   },
-  "bin": {
-    "barke": "dist/barke-yaml.cjs"
-  },
   "files": [
     "dist",
-    "src",
-    "doc",
-    "yaml"
+    "src"
   ],
   "type": "module",
   "main": "dist/index.js",
@@ -38,20 +33,16 @@
     "build": "rm -rf dist && bun build.mjs",
     "publishx": "npm version patch && bun run build && npm publish --access=public && bun run install-global",
     "install-global": "npm cache clean --force && npm i -g @mergehez/barke && npm list -g && bun add --global @mergehez/barke --force",
-    "test-ts": "bun run build && bun barke-test-unix.ts --dry-run",
-    "test-yaml-ssh": "bun run build && bun dist/barke-yaml.cjs --config='./barke-test-ssh.yml'",
-    "test-yaml-ftp": "bun run build && bun dist/barke-yaml.cjs --config='./barke-test-ftp.yml'"
+    "test-ts": "bun run build && bun barke-test-unix.ts --dry-run"
   },
   "dependencies": {
-    "adm-zip": "^0.6.0",
-    "basic-ftp": "^6.2.1",
+    "adm-zip": "^0.6.1",
+    "basic-ftp": "^6.2.3",
     "node-ssh": "^13.2.1",
-    "prompts": "^2.4.2",
-    "yaml": "^2.9.0"
+    "prompts": "^2.4.2"
   },
   "devDependencies": {
-    "@types/adm-zip": "^0.5.8",
-    "@types/node": "^22.20.2",
+    "@types/node": "^26.6.6",
     "@types/prompts": "^2.4.9",
     "@types/ssh2": "^1.15.6",
     "esbuild": "0.28.2",

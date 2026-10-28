@@ -344,8 +344,8 @@ let calleLocRefToLogFn: TCalleeLoc | undefined = undefined;
 type StyleName = Extract<Parameters<typeof styleText>[0], string>;
 export const logColors = [
     'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
-    'blackBright', 'redBright', 'greenBright', 'yellowBright', 'blueBright',
-    'magentaBright', 'cyanBright', 'whiteBright', 'gray', 'grey',
+    'redBright', 'greenBright', 'yellowBright', 'blueBright',
+    'magentaBright', 'cyanBright', 'whiteBright', 'gray',
 ] as const satisfies readonly StyleName[];
 export type LogColor = typeof logColors[number];
 

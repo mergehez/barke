@@ -136,13 +136,13 @@ export function parseEnv(filePath = './.env', exitIfNoEnv = true) {
         console.log(styleText('red', 'No .env file found!'));
         return exitIfNoEnv ? process.exit(1) : {};
     }
-    return parseYaml(fs.readFileSync(filePath).toString());
+    return parseEnvContent(fs.readFileSync(filePath).toString());
 }
 
 /**
- * Parse the content of a YAML file.
+ * Parse the content of a .env file.
  */
-export function parseYaml(content: string): Record<string, string> {
+export function parseEnvContent(content: string): Record<string, string> {
     let lines = content.split(EOL)
         .map(t => t.trim())
         .filter(t => t.length > 0)
