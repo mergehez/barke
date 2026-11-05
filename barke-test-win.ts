@@ -21,6 +21,8 @@ const config = {
         port: parseInt(env.SSH_PORT!),
     } satisfies TSshConfig,
     findConfig: {
+        // DLLs keep their NuGet build timestamp, so compare content instead of mtime.
+        compare: 'hash',
         ignorePatterns: [
             '/order-logs',
             '.DS_Store',

@@ -1,5 +1,6 @@
 import AdmZip from "adm-zip";
 import { Config as TSshConfig } from "node-ssh";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import fsPath from "node:path";
 import { OS, TFileFromServer, TFileToUpload, TFtpConfig, TOnError, TStats } from "../types.ts";
@@ -63,6 +64,14 @@ export type TIgnoreConfig = {
   ignoreFn?: (path: string, stat: TStats) => boolean;
 };
 export type TFindNewFilesConfig = TIgnoreConfig & {
+  /**
+   * How local and remote files are compared.
+   * - `mtime` (default): uploads when the size differs or the local file is newer.
+   * - `hash`: uploads when the size or the file content (MD5) differs. Use this when your
+   *   build tool rewrites every output file (for example AdonisJS `ace build`) or when the
+   *   server clock/timezone differs from yours.
+   */
+  compare?: "mtime" | "hash";
   /**
    * If provided, console.log will group the files during 'findNewFiles' function.
    *
@@ -251,7 +260,9 @@ export function useExecuter(userConfig: TUserConfig) {
     compressFiles: (files: TFileToUpload[]) => {
       const zip = new AdmZip();
       for (const f of files) {
-        zip.addFile(f.trimmedPath, fs.readFileSync(f.fullPath));
+        // Passing the stats makes the archive store the file's real modification time
+        // instead of the time the archive was created.
+        zip.addFile(f.trimmedPath, fs.readFileSync(f.fullPath), "", fs.statSync(f.fullPath));
       }
 
       // const buffer = await zip.toBuffer()
@@ -370,91 +381,149 @@ export function useExecuter(userConfig: TUserConfig) {
   };
 }
 
-export function compareServerFilesWithLocal(
+type TLocalFile = {
+  path: string;
+  trimmedPath: string;
+  stat: TStats;
+};
+
+type THashCandidate = {
+  local: TLocalFile;
+  remote: TFileFromServer;
+};
+
+function hashLocalFile(path: string) {
+  return createHash("md5").update(fs.readFileSync(path)).digest("hex");
+}
+
+export async function compareServerFilesWithLocal(
   sourceBasePath: string,
   flags: TFlags,
-  ignoreCfg: TIgnoreConfig,
+  cfg: TFindNewFilesConfig,
   filesFromServer: TFileFromServer[],
   dirsWithManyFiles?: string[],
-) {
-  const ig = ignore().add(ignoreCfg.ignorePatterns);
-  const newFiles: TFileToUpload[] = [];
-  findInDir<TFileToUpload>({
+  getRemoteHashes?: (paths: string[]) => Promise<Record<string, string>>,
+): Promise<TFileToUpload[]> {
+  const ig = ignore().add(cfg.ignorePatterns);
+  const localFiles: TLocalFile[] = [];
+  findInDir<TLocalFile>({
     baseDir: sourceBasePath,
-    onFound: (obj) => {
-      newFiles.push(obj);
-    },
+    onFound: (file) => localFiles.push(file),
     ignore: ig,
-    ignorer: ignoreCfg.ignoreFn,
-    objectCreator: (data) => {
-      const { path: fullPath, trimmedPath, stat } = data;
-      if (flags.isFresh) {
-        return {
-          trimmedPath,
-          fullPath,
-          sizeInBytes: stat.size,
-        };
-      }
+    ignorer: cfg.ignoreFn,
+    objectCreator: (data) => data as TLocalFile,
+  });
 
-      const c = Math.round(stat.ctimeMs / 1000);
-      const m = Math.round(stat.mtimeMs / 1000);
-      const local: TFileFromServer = {
-        path: fullPath,
-        // ctimeEpoch: c,
-        mtimeEpoch: m,
-        size: stat.size,
-      };
-      const remote = filesFromServer.find((v) => trimmedPath == trimPath(v.path, sourceBasePath));
+  const remoteMap = new Map<string, TFileFromServer>();
+  for (const remote of filesFromServer) {
+    remoteMap.set(trimPath(remote.path, sourceBasePath), remote);
+  }
 
+  const newFiles: TFileToUpload[] = [];
+  const hashCandidates: THashCandidate[] = [];
+
+  for (const localFile of localFiles) {
+    const { path: fullPath, trimmedPath, stat } = localFile;
+    if (flags.isFresh) {
+      newFiles.push({ trimmedPath, fullPath, sizeInBytes: stat.size });
+      continue;
+    }
+
+    const local: TFileFromServer = {
+      path: fullPath,
+      mtimeEpoch: Math.round((stat.mtimeMs ?? 0) / 1000),
+      size: stat.size,
+    };
+    const remote = remoteMap.get(trimmedPath);
+
+    if (!remote) {
       if (flags.isLogFiles) {
         log("\n- " + trimmedPath, "blue");
+        log("     not found on server", "blue");
       }
-      if (!remote) {
-        if (flags.isLogFiles) log("     not found on server", "blue");
+      newFiles.push({ trimmedPath, fullPath, sizeInBytes: stat.size });
+      continue;
+    }
 
-        return {
-          trimmedPath,
-          fullPath,
-          sizeInBytes: stat.size,
-        };
-      }
-
-      if (fullPath.includes(".dll")) {
-        // console.log(stat);
-        // console.log(remote);
-        // process.exit(1)
-      }
-
+    if (local.size !== remote.size) {
       if (flags.isLogFiles) {
-        const lm = local.mtimeEpoch;
-        const rm = remote.mtimeEpoch;
-        log("   server: " + rm + " (" + unixTsToDate(rm) + ") - " + remote.size + " bytes", "blue");
-        log("    local: " + lm + " (" + unixTsToDate(lm) + ") - " + stat.size + " bytes", "blue");
+        log("\n- " + trimmedPath, "blue");
+        log("   upload: true (size changed)", "green");
+      }
+      newFiles.push({ trimmedPath, fullPath, sizeInBytes: stat.size });
+      continue;
+    }
+
+    if (cfg.compare === "hash" && !remote.hash && getRemoteHashes) {
+      // Cheap fast path: zip timestamps have 2-second resolution, so allow a small
+      // tolerance. This keeps large, unchanged files (for example DLLs with old
+      // NuGet timestamps) from being read again on every deploy.
+      if (Math.abs(local.mtimeEpoch - remote.mtimeEpoch) <= 2) {
+        if (flags.isLogFiles) {
+          log("\n- " + trimmedPath, "blue");
+          log("   upload: false (size and mtime match)", "red");
+        }
+        continue;
+      }
+      // Size matches but the timestamp differs: the content may still be identical.
+      hashCandidates.push({ local: localFile, remote });
+      continue;
+    }
+
+    if (flags.isLogFiles) {
+      const lm = local.mtimeEpoch;
+      const rm = remote.mtimeEpoch;
+      log("\n- " + trimmedPath, "blue");
+      log("   server: " + rm + " (" + unixTsToDate(rm) + ") - " + remote.size + " bytes", "blue");
+      log("    local: " + lm + " (" + unixTsToDate(lm) + ") - " + stat.size + " bytes", "blue");
+      log(
+        "     diff: " +
+          Math.round(lm - rm) +
+          "s " +
+          Math.round((lm - rm) / 60) +
+          "m " +
+          Math.round((lm - rm) / 60 / 60) +
+          "h",
+        "blue",
+      );
+    }
+
+    const useHash = cfg.compare === "hash" && remote.hash !== undefined;
+    const changed = useHash ? hashLocalFile(fullPath) !== remote.hash : shouldUpload(local, remote);
+    if (!changed) {
+      if (flags.isLogFiles) log("   upload: false", "red");
+      continue;
+    }
+
+    if (flags.isLogFiles) {
+      log("   upload: true" + (useHash ? " (hash changed)" : ""), "green");
+    }
+    newFiles.push({ trimmedPath, fullPath, sizeInBytes: stat.size });
+  }
+
+  if (hashCandidates.length > 0 && getRemoteHashes) {
+    const hashes = await getRemoteHashes(hashCandidates.map((candidate) => candidate.remote.path));
+    for (const { local, remote } of hashCandidates) {
+      const localHash = hashLocalFile(local.path);
+      const remoteHash = hashes[remote.path];
+      // If the server could not hash the file, upload it rather than risk skipping a change.
+      const changed = !remoteHash || localHash !== remoteHash;
+      if (flags.isLogFiles) {
+        log("\n- " + local.trimmedPath, "blue");
         log(
-          "     diff: " +
-            Math.round(lm - rm) +
-            "s " +
-            Math.round((lm - rm) / 60) +
-            "m " +
-            Math.round((lm - rm) / 60 / 60) +
-            "h",
-          "blue",
+          changed ? "   upload: true" + (remoteHash ? " (hash changed)" : " (hash unavailable)") : "   upload: false",
+          changed ? "green" : "red",
         );
       }
-      if (!shouldUpload(local, remote)) {
-        if (flags.isLogFiles) log("   upload: false", "red");
-        return null;
+      if (changed) {
+        newFiles.push({
+          trimmedPath: local.trimmedPath,
+          fullPath: local.path,
+          sizeInBytes: local.stat.size,
+        });
       }
-
-      if (flags.isLogFiles) log("   upload: true", "green");
-
-      return {
-        trimmedPath,
-        fullPath,
-        sizeInBytes: stat.size,
-      };
-    },
-  });
+    }
+  }
 
   if (dirsWithManyFiles !== undefined) {
     const distDirsPrinted: Record<string, boolean> = (dirsWithManyFiles ?? []).reduce(

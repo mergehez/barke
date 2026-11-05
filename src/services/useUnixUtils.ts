@@ -35,8 +35,7 @@ export const useUnixUtils = (cfg: TUserConfig): PlatformServerUtils => {
                 if (ignore == '/.*' || ignore == '/*.*')
                     continue;
                 let i = ignore.startsWith('/') ? '.' + ignore : ignore;
-                if (i.endsWith('/'))
-                    i = i.substring(0, i.length - 1);
+                i = i.replace(/\/+$/, '');
                 cmd += `-not \\( -path "${i}" -prune \\) `;
             }
             // example output: {"path":"/path/to/file.txt", "ctime": 1672531200, "mtime": 1672531201, "size": 1024}
@@ -68,6 +67,29 @@ export const useUnixUtils = (cfg: TUserConfig): PlatformServerUtils => {
                 console.log('cmd:', cmd);
                 throw e;
             }
+        },
+        sshGetFileHashes: async (paths, runShell) => {
+            const hashes: Record<string, string> = {};
+            const shellQuote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
+            // Keep the command below the shell argument limit on very large deployments.
+            const chunkSize = 200;
+            for (let i = 0; i < paths.length; i += chunkSize) {
+                const chunk = paths.slice(i, i + chunkSize);
+                const args = chunk.map((path) => shellQuote(path)).join(' ');
+                const out = await runShell({
+                    command: `printf '%s\\0' ${args} | xargs -0 md5sum --`,
+                    message: i === 0 ? 'blue|\n-> SSH: Hashing files on server...' : undefined,
+                    ignore_stdout: true
+                }, true);
+
+                for (const line of out.split('\n')) {
+                    const match = line.trim().match(/^([0-9a-f]{32})\s+\*?(.+)$/i);
+                    if (match) {
+                        hashes[match[2]] = match[1].toLowerCase();
+                    }
+                }
+            }
+            return hashes;
         }
     }
 }

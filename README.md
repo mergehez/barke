@@ -69,3 +69,18 @@ sshConn.dispose();
 executer.finish();
 ```
 
+## Detecting changed files
+
+By default, `findNewFiles` compares file sizes and modification times. If your build tool rewrites every output file (for example AdonisJS `ace build`), modification times cannot tell which files actually changed. Use `compare: 'hash'` to compare file contents instead:
+
+```typescript
+const newFiles = await sshConn.findNewFiles({
+    compare: 'hash',
+    ignorePatterns: ['node_modules', '.git'],
+});
+```
+
+Hash comparison works on Linux servers (`md5sum`) and Windows servers (PowerShell `Get-FileHash`). It falls back to modification times where hashing is not supported. This is also the right option for DLLs: .NET/NuGet preserves the DLL's original build timestamp, so its modification time is not the time you installed it.
+
+To keep deploys cheap, files whose size **and** modification time match are considered unchanged without hashing. Hashing is only used when the timestamp differs but the size is identical — for example a DLL replaced by a different NuGet version that happens to have the same size.
+

@@ -133,7 +133,10 @@ export const useFTP = async (userConfig: TUserConfig, flags: TFlags, ftpInfo: TF
             });
         }
 
-        const newFiles = compareServerFilesWithLocal(
+        if (cfg.compare === 'hash') {
+            logWarning('Content comparison is not supported over FTP, falling back to modification times.');
+        }
+        const newFiles = await compareServerFilesWithLocal(
             userConfig.sourceBasePath,
             flags,
             cfg,

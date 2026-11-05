@@ -3,7 +3,7 @@ import fsPath from "node:path";
 import { SFTPWrapper, TransferOptions as SshTransferOptions } from "ssh2";
 import { TFileFromServer } from "../types.ts";
 import { quotify, runSshShell, ShellProps, ShellPropsExtended } from "../utils/cli_utils.ts";
-import { bytesToSizeStr, logError, logInfo, progressBar } from "../utils/helpers.ts";
+import { bytesToSizeStr, gmtOffsetToSeconds, logError, logInfo, logWarning, progressBar } from "../utils/helpers.ts";
 import { compareServerFilesWithLocal, TFindNewFilesConfig, TFlags, TUserConfig } from "./executer.ts";
 import { unixConsts, useUnixUtils } from "./useUnixUtils.ts";
 import { useWindowsUtils, windowConsts } from "./useWindowsUtils.ts";
@@ -65,14 +65,30 @@ export const sshConnect = async (userConfig: TUserConfig, flags: TFlags, sshConf
                 exec
             );
             filesFromServer = files;
+
+            // Zip entries store local wall-clock time. When the server unzips them in a
+            // different timezone, its mtimes are shifted by the difference.
+            const correction = gmtOffsetToSeconds(serverUtils.time.gmtOffsett) - gmtOffsetToSeconds(localConsts.time.gmtOffsett);
+            if (cfg.compare !== 'hash' && correction !== 0) {
+                for (const file of filesFromServer)
+                    file.mtimeEpoch += correction;
+            }
         }
 
-        const newFiles = compareServerFilesWithLocal(
+        if (cfg.compare === 'hash' && !serverUtils.sshGetFileHashes) {
+            logWarning('Content comparison is not supported on this platform, falling back to modification times.');
+        }
+        const getRemoteHashes = cfg.compare === 'hash' && serverUtils.sshGetFileHashes
+            ? (paths: string[]) => serverUtils.sshGetFileHashes!(paths, exec)
+            : undefined;
+
+        const newFiles = await compareServerFilesWithLocal(
             userConfig.sourceBasePath,
             flags,
             cfg,
             filesFromServer,
-            cfg.dirsWithManyFiles
+            cfg.dirsWithManyFiles,
+            getRemoteHashes
         );
 
         if (newFiles.length === 0) {

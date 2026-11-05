@@ -26,6 +26,8 @@ export type TFileFromServer = {
     // ctimeEpoch: number,
     /** Size in bytes */
     size: number,
+    /** Content hash (MD5) when content based comparison is used. */
+    hash?: string,
 }
 
 export type TFtpConfig = {
@@ -51,6 +53,8 @@ export type PlatformServerUtils = {
     sshDeleteDirCommand: string,
     sshUnzipCommand: string,
     sshGetFilesFromServer: (igCfg: TIgnoreConfig, serverGmtOffsett: string, runShell: (cfg: ShellProps, prependCd?: boolean) => Promise<string>) => Promise<{ files: TFileFromServer[], includesSeconds: boolean }>,
+    /** Returns MD5 hashes for the given remote paths. Not available on every platform. */
+    sshGetFileHashes?: (paths: string[], runShell: (cfg: ShellProps, prependCd?: boolean) => Promise<string>) => Promise<Record<string, string>>,
 }
 
 export type TStats = {

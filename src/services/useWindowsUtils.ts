@@ -119,6 +119,37 @@ export const useWindowsUtils = (cfg: TUserConfig, ssh: NodeSSH): PlatformServerU
                 throw e;
             }
         },
+        sshGetFileHashes: async (paths, runShell) => {
+            const hashes: Record<string, string> = {};
+            const chunkSize = 100;
+            for (let i = 0; i < paths.length; i += chunkSize) {
+                const chunk = paths.slice(i, i + chunkSize);
+                const psPaths = chunk
+                    .map((path) => `'${path.replace(/\//g, '\\').replace(/'/g, "''")}'`)
+                    .join(',');
+                const script =
+                    `$paths = @(${psPaths}); ` +
+                    `foreach ($p in $paths) { try { ` +
+                    `$h = Get-FileHash -Algorithm MD5 -LiteralPath $p -ErrorAction Stop; ` +
+                    `Write-Output ($h.Hash.ToLower() + '  ' + $p) ` +
+                    `} catch {} }`;
+                // Base64 avoids cmd.exe/PowerShell quoting problems with paths.
+                const encoded = Buffer.from(script, 'utf16le').toString('base64');
+                const out = await runShell({
+                    command: `powershell.exe -NoProfile -EncodedCommand ${encoded}`,
+                    message: i === 0 ? 'blue|\n-> SSH: Hashing files on server...' : undefined,
+                    ignore_stdout: true
+                }, true);
+
+                for (const line of out.split(/\r?\n/)) {
+                    const match = line.trim().match(/^([0-9a-f]{32})\s+\*?(.+)$/i);
+                    if (match) {
+                        hashes[match[2].replace(/\\/g, '/')] = match[1].toLowerCase();
+                    }
+                }
+            }
+            return hashes;
+        },
     }
 }
 

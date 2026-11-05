@@ -446,6 +446,18 @@ export function unixTsToDate(timestamp: number) {
 }
 
 /**
+ * Converts a GMT offset like '+0200' or '-0530' to seconds.
+ */
+export function gmtOffsetToSeconds(offset: string) {
+    // Unix `date +%z` returns '+0200'; Windows `wmic timezone` returns '+02:00'.
+    const match = offset.trim().match(/^([+-])(\d{2}):?(\d{2})$/);
+    if (!match)
+        return 0;
+    const sign = match[1] === '-' ? -1 : 1;
+    return sign * (parseInt(match[2]) * 60 + parseInt(match[3])) * 60;
+}
+
+/**
  * Redrawing the bar in place needs cursor control, which a TTY has and a pipe or a log file does not:
  * `process.stdout.clearLine`/`cursorTo` are missing there, and calling them throws away the whole run.
  * Deploys are often started with their output captured (CI, another tool, `bun run deploy > log`), so the
